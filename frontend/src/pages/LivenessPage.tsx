@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { useAuthContext } from "../hooks/AuthContext";
 import { ChallengeOrchestrator, type ChallengeResult } from "../components/challenge/ChallengeOrchestrator";
+import { ReferenceUpload } from "../components/ReferenceUpload";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 type Stage =
+  | "upload-reference"
   | "permission-check"
   | "liveness"
   | "loading-results"
@@ -19,13 +21,16 @@ interface LivenessResult {
   passed: boolean;
   threshold: number;
   challengeScore?: number;
+  faceMatchScore?: number;
+  faceMatchPassed?: boolean;
 }
 
 export function LivenessPage() {
   const { user } = useAuthContext();
-  const [stage, setStage] = useState<Stage>("permission-check");
+  const [stage, setStage] = useState<Stage>("upload-reference");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [referenceKey, setReferenceKey] = useState<string | null>(null);
   const [result, setResult] = useState<LivenessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraPermission, setCameraPermission] = useState<
@@ -125,24 +130,55 @@ export function LivenessPage() {
   }, [sessionId]);
 
   const handleChallengeComplete = useCallback(
-    (passed: boolean, _results: ChallengeResult[]) => {
-      setResult((prev) => ({
-        score: prev?.score ?? 0,
-        passed: (prev?.passed ?? false) && passed,
-        threshold: prev?.threshold ?? 90,
-        challengeScore: passed ? 100 : 0,
-      }));
+    async (passed: boolean, _results: ChallengeResult[]) => {
+      if (!passed || !referenceKey || !sessionId) {
+        setResult((prev) => ({
+          score: prev?.score ?? 0,
+          passed: (prev?.passed ?? false) && passed,
+          threshold: prev?.threshold ?? 90,
+          challengeScore: passed ? 100 : 0,
+        }));
+        setStage("result");
+        return;
+      }
+
+      // Run face comparison
+      try {
+        const res = await fetch(`${API_URL}/sessions/${sessionId}/compare`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ createdAt, referenceKey }),
+        });
+        const data = await res.json();
+        setResult((prev) => ({
+          score: prev?.score ?? 0,
+          passed: (prev?.passed ?? false) && data.passed,
+          threshold: prev?.threshold ?? 90,
+          challengeScore: 100,
+          faceMatchScore: data.similarity,
+          faceMatchPassed: data.passed,
+        }));
+      } catch {
+        setResult((prev) => ({
+          score: prev?.score ?? 0,
+          passed: prev?.passed ?? false,
+          threshold: prev?.threshold ?? 90,
+          challengeScore: 100,
+        }));
+      }
       setStage("result");
     },
-    []
+    [referenceKey, sessionId, createdAt]
   );
 
   const handleRetry = () => {
     setSessionId(null);
+    setCreatedAt(null);
+    setReferenceKey(null);
     setResult(null);
     setError(null);
     setLightingWarning(false);
-    setStage("permission-check");
+    setStage("upload-reference");
   };
 
   if (cameraPermission === "denied") {
@@ -153,6 +189,17 @@ export function LivenessPage() {
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-4">
       <div className="w-full max-w-[480px]">
         <AnimatePresence mode="wait">
+          {stage === "upload-reference" && (
+            <ReferenceUpload
+              sessionId={sessionId ?? "pending"}
+              onUpload={(key) => {
+                setReferenceKey(key);
+                setStage("permission-check");
+              }}
+              onSkip={() => setStage("permission-check")}
+            />
+          )}
+
           {stage === "permission-check" && (
             <motion.div
               key="start"
@@ -264,11 +311,17 @@ export function LivenessPage() {
                 Liveness: {result.score.toFixed(1)}% (threshold: {result.threshold}%)
               </p>
               {result.challengeScore !== undefined && (
-                <p className="text-sm text-gray-400 mb-4">
-                  Challenge score: {result.challengeScore.toFixed(1)}°
+                <p className="text-sm text-gray-400 mb-2">
+                  Challenges: {result.challengeScore === 100 ? "All passed" : "Failed"}
                 </p>
               )}
-              {result.challengeScore === undefined && <div className="mb-4" />}
+              {result.faceMatchScore !== undefined && (
+                <p className={`text-sm mb-2 ${result.faceMatchPassed ? "text-green-400" : "text-red-400"}`}>
+                  Face match: {result.faceMatchScore.toFixed(1)}%
+                  {!result.faceMatchPassed && " — does not match reference"}
+                </p>
+              )}
+              <div className="mb-4" />
 
               <button
                 onClick={handleRetry}

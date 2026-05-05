@@ -43,10 +43,10 @@ describe("Lambda handlers", () => {
     expect(JSON.parse(result.body).error).toBe("Missing sessionId or frames");
   });
 
-  it("compareFaces returns 200", async () => {
+  it("compareFaces returns 400 without sessionId", async () => {
     const { handler } = await import("../handlers/compareFaces");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(400);
   });
 
   it("storeVideo returns 200", async () => {
@@ -73,10 +73,10 @@ describe("Lambda handlers", () => {
     expect(result.statusCode).toBe(200);
   });
 
-  it("uploadReference returns 200", async () => {
+  it("uploadReference returns 400 without sessionId", async () => {
     const { handler } = await import("../handlers/uploadReference");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(400);
   });
 
   it("getAnalytics returns 200", async () => {

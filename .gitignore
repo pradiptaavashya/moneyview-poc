@@ -1,0 +1,10 @@
+node_modules/
+dist/
+infrastructure/.terraform/
+infrastructure/*.tfstate*
+infrastructure/lambda_placeholder.zip
+infrastructure/lambda_dist/
+infrastructure/.terraform.lock.hcl
+*.zip
+.env
+.env.local

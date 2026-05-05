@@ -2,6 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import {
   RekognitionClient,
   DetectFacesCommand,
+  type FaceDetail,
 } from "@aws-sdk/client-rekognition";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
@@ -13,11 +14,12 @@ const s3 = new S3Client({});
 
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE_NAME!;
 const VIDEO_BUCKET = process.env.VIDEO_S3_BUCKET!;
-const DEFAULT_YAW_THRESHOLD = 20;
+const DEFAULT_ANGLE_THRESHOLD = 20;
+const DEFAULT_EXPRESSION_THRESHOLD = 80;
 const CONSECUTIVE_FRAMES_REQUIRED = 3;
 
 interface ChallengeFrame {
-  image: string; // base64 encoded JPEG
+  image: string;
   timestamp: number;
 }
 
@@ -28,42 +30,71 @@ interface ValidateRequest {
   frames: ChallengeFrame[];
 }
 
-async function detectFaceYaw(imageBytes: Buffer): Promise<number | null> {
+type ChallengeType =
+  | "head-left"
+  | "head-right"
+  | "head-up"
+  | "head-down"
+  | "smile"
+  | "mouth-open";
+
+const HINTS: Record<ChallengeType, string> = {
+  "head-left": "Turn your head further to the left",
+  "head-right": "Turn your head further to the right",
+  "head-up": "Tilt your head further up",
+  "head-down": "Tilt your head further down",
+  smile: "Smile wider",
+  "mouth-open": "Open your mouth wider",
+};
+
+async function detectFace(imageBytes: Buffer): Promise<FaceDetail | null> {
   const result = await rekognition.send(
     new DetectFacesCommand({
       Image: { Bytes: imageBytes },
       Attributes: ["ALL"],
     })
   );
-  const face = result.FaceDetails?.[0];
-  if (!face?.Pose?.Yaw) return null;
-  return face.Pose.Yaw;
+  return result.FaceDetails?.[0] ?? null;
 }
 
-function getThresholdForChallenge(
-  challengeType: string
-): { axis: "yaw" | "pitch"; direction: "positive" | "negative"; threshold: number } {
+function evaluateChallenge(
+  face: FaceDetail,
+  challengeType: ChallengeType
+): { passed: boolean; score: number } {
   switch (challengeType) {
-    case "head-left":
-      return { axis: "yaw", direction: "negative", threshold: DEFAULT_YAW_THRESHOLD };
-    case "head-right":
-      return { axis: "yaw", direction: "positive", threshold: DEFAULT_YAW_THRESHOLD };
-    case "head-up":
-      return { axis: "pitch", direction: "positive", threshold: DEFAULT_YAW_THRESHOLD };
-    case "head-down":
-      return { axis: "pitch", direction: "negative", threshold: DEFAULT_YAW_THRESHOLD };
-    default:
-      return { axis: "yaw", direction: "negative", threshold: DEFAULT_YAW_THRESHOLD };
+    case "head-left": {
+      const yaw = face.Pose?.Yaw ?? 0;
+      return { passed: yaw <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+    }
+    case "head-right": {
+      const yaw = face.Pose?.Yaw ?? 0;
+      return { passed: yaw >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+    }
+    case "head-up": {
+      const pitch = face.Pose?.Pitch ?? 0;
+      return { passed: pitch >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+    }
+    case "head-down": {
+      const pitch = face.Pose?.Pitch ?? 0;
+      return { passed: pitch <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+    }
+    case "smile": {
+      const confidence = face.Smile?.Confidence ?? 0;
+      const value = face.Smile?.Value ?? false;
+      return {
+        passed: value && confidence >= DEFAULT_EXPRESSION_THRESHOLD,
+        score: confidence,
+      };
+    }
+    case "mouth-open": {
+      const confidence = face.MouthOpen?.Confidence ?? 0;
+      const value = face.MouthOpen?.Value ?? false;
+      return {
+        passed: value && confidence >= DEFAULT_EXPRESSION_THRESHOLD,
+        score: confidence,
+      };
+    }
   }
-}
-
-function frameMeetsThreshold(
-  value: number,
-  direction: "positive" | "negative",
-  threshold: number
-): boolean {
-  if (direction === "negative") return value <= -threshold;
-  return value >= threshold;
 }
 
 export const handler = async (
@@ -81,18 +112,14 @@ export const handler = async (
       };
     }
 
-    const { direction, threshold } = getThresholdForChallenge(challengeType);
-
+    const type = challengeType as ChallengeType;
     let consecutivePasses = 0;
     let maxConsecutive = 0;
     let bestScore = 0;
-    const frameResults: { timestamp: number; yaw: number | null; passed: boolean }[] = [];
 
-    for (let i = 0; i < frames.length; i++) {
-      const frame = frames[i];
+    for (const frame of frames) {
       const imageBytes = Buffer.from(frame.image, "base64");
 
-      // Store frame in S3
       await s3.send(
         new PutObjectCommand({
           Bucket: VIDEO_BUCKET,
@@ -102,18 +129,21 @@ export const handler = async (
         })
       );
 
-      const yaw = await detectFaceYaw(imageBytes);
-      const passed = yaw !== null && frameMeetsThreshold(yaw, direction, threshold);
+      const face = await detectFace(imageBytes);
+      if (!face) {
+        consecutivePasses = 0;
+        continue;
+      }
+
+      const { passed, score } = evaluateChallenge(face, type);
 
       if (passed) {
         consecutivePasses++;
         maxConsecutive = Math.max(maxConsecutive, consecutivePasses);
-        if (yaw !== null) bestScore = Math.max(bestScore, Math.abs(yaw));
+        bestScore = Math.max(bestScore, score);
       } else {
         consecutivePasses = 0;
       }
-
-      frameResults.push({ timestamp: frame.timestamp, yaw, passed });
     }
 
     const challengePassed = maxConsecutive >= CONSECUTIVE_FRAMES_REQUIRED;
@@ -133,7 +163,6 @@ export const handler = async (
               bestScore,
               framesAnalyzed: frames.length,
               consecutiveFrames: maxConsecutive,
-              threshold,
               completedAt: new Date().toISOString(),
             },
           ],
@@ -149,11 +178,8 @@ export const handler = async (
         bestScore,
         consecutiveFrames: maxConsecutive,
         requiredConsecutive: CONSECUTIVE_FRAMES_REQUIRED,
-        threshold,
         framesAnalyzed: frames.length,
-        hint: challengePassed
-          ? null
-          : "Turn your head further to the left",
+        hint: challengePassed ? null : HINTS[type],
       }),
     };
   } catch (err: unknown) {

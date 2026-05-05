@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { useAuthContext } from "../hooks/AuthContext";
-import { HeadTurnChallenge } from "../components/challenge/HeadTurnChallenge";
+import { ChallengeOrchestrator, type ChallengeResult } from "../components/challenge/ChallengeOrchestrator";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -125,12 +125,12 @@ export function LivenessPage() {
   }, [sessionId]);
 
   const handleChallengeComplete = useCallback(
-    (passed: boolean, score: number) => {
+    (passed: boolean, _results: ChallengeResult[]) => {
       setResult((prev) => ({
         score: prev?.score ?? 0,
         passed: (prev?.passed ?? false) && passed,
         threshold: prev?.threshold ?? 90,
-        challengeScore: score,
+        challengeScore: passed ? 100 : 0,
       }));
       setStage("result");
     },
@@ -224,9 +224,11 @@ export function LivenessPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <HeadTurnChallenge
+              <ChallengeOrchestrator
                 sessionId={sessionId}
                 createdAt={createdAt}
+                challengeCount={3}
+                maxRetries={3}
                 onComplete={handleChallengeComplete}
               />
             </motion.div>

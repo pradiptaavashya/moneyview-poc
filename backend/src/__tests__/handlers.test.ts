@@ -36,10 +36,11 @@ describe("Lambda handlers", () => {
     expect(JSON.parse(result.body).sessions).toEqual([]);
   });
 
-  it("validateFrames returns 200", async () => {
+  it("validateFrames returns 400 without sessionId or frames", async () => {
     const { handler } = await import("../handlers/validateFrames");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).error).toBe("Missing sessionId or frames");
   });
 
   it("compareFaces returns 200", async () => {

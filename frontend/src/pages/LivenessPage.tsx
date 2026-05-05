@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { useAuthContext } from "../hooks/AuthContext";
+import { HeadTurnChallenge } from "../components/challenge/HeadTurnChallenge";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -9,6 +10,7 @@ type Stage =
   | "permission-check"
   | "liveness"
   | "loading-results"
+  | "challenge"
   | "result"
   | "error";
 
@@ -16,12 +18,14 @@ interface LivenessResult {
   score: number;
   passed: boolean;
   threshold: number;
+  challengeScore?: number;
 }
 
 export function LivenessPage() {
   const { user } = useAuthContext();
   const [stage, setStage] = useState<Stage>("permission-check");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [result, setResult] = useState<LivenessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraPermission, setCameraPermission] = useState<
@@ -89,6 +93,7 @@ export function LivenessPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create session");
       setSessionId(data.sessionId);
+      setCreatedAt(data.createdAt ?? new Date().toISOString());
       setStage("liveness");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to start session");
@@ -104,13 +109,33 @@ export function LivenessPage() {
       const res = await fetch(`${API_URL}/sessions/${sessionId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to get results");
-      setResult({ score: data.score, passed: data.passed, threshold: data.threshold });
-      setStage("result");
+
+      if (data.passed) {
+        // Stage 1 passed — proceed to custom challenge
+        setResult({ score: data.score, passed: true, threshold: data.threshold });
+        setStage("challenge");
+      } else {
+        setResult({ score: data.score, passed: false, threshold: data.threshold });
+        setStage("result");
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to get results");
       setStage("error");
     }
   }, [sessionId]);
+
+  const handleChallengeComplete = useCallback(
+    (passed: boolean, score: number) => {
+      setResult((prev) => ({
+        score: prev?.score ?? 0,
+        passed: (prev?.passed ?? false) && passed,
+        threshold: prev?.threshold ?? 90,
+        challengeScore: score,
+      }));
+      setStage("result");
+    },
+    []
+  );
 
   const handleRetry = () => {
     setSessionId(null);
@@ -192,6 +217,21 @@ export function LivenessPage() {
             </motion.div>
           )}
 
+          {stage === "challenge" && sessionId && createdAt && (
+            <motion.div
+              key="challenge"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <HeadTurnChallenge
+                sessionId={sessionId}
+                createdAt={createdAt}
+                onComplete={handleChallengeComplete}
+              />
+            </motion.div>
+          )}
+
           {stage === "result" && result && (
             <motion.div
               key="result"
@@ -218,9 +258,15 @@ export function LivenessPage() {
               <h2 className="text-xl font-semibold text-white mb-1">
                 {result.passed ? "Liveness Verified" : "Liveness Check Failed"}
               </h2>
-              <p className="text-sm text-gray-400 mb-4">
-                Confidence: {result.score.toFixed(1)}% (threshold: {result.threshold}%)
+              <p className="text-sm text-gray-400 mb-2">
+                Liveness: {result.score.toFixed(1)}% (threshold: {result.threshold}%)
               </p>
+              {result.challengeScore !== undefined && (
+                <p className="text-sm text-gray-400 mb-4">
+                  Challenge score: {result.challengeScore.toFixed(1)}°
+                </p>
+              )}
+              {result.challengeScore === undefined && <div className="mb-4" />}
 
               <button
                 onClick={handleRetry}

@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../hooks/AuthContext";
 
 export function AdminPage() {
   const { isAdmin } = useAuthContext();
+  const navigate = useNavigate();
 
   if (!isAdmin) {
     return <Navigate to="/" replace />;
@@ -23,11 +24,14 @@ export function AdminPage() {
             <p className="text-2xl font-semibold text-white">—</p>
             <p className="text-xs text-gray-500 mt-1">Coming in slice 010</p>
           </div>
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+          <button
+            onClick={() => navigate("/admin/config")}
+            className="bg-gray-900 rounded-xl p-5 border border-gray-800 text-left hover:border-indigo-500 transition-colors"
+          >
             <h3 className="text-sm font-medium text-gray-400 mb-1">Configuration</h3>
-            <p className="text-2xl font-semibold text-white">—</p>
-            <p className="text-xs text-gray-500 mt-1">Coming in slice 009</p>
-          </div>
+            <p className="text-2xl font-semibold text-white">Tune</p>
+            <p className="text-xs text-gray-500 mt-1">Adjust thresholds and parameters</p>
+          </button>
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h3 className="text-sm font-medium text-gray-400 mb-1">Analytics</h3>
             <p className="text-2xl font-semibold text-white">—</p>

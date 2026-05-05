@@ -61,10 +61,14 @@ describe("Lambda handlers", () => {
     expect(result.statusCode).toBe(200);
   });
 
-  it("updateConfig returns 200", async () => {
+  it("updateConfig validates bounds", async () => {
     const { handler } = await import("../handlers/updateConfig");
-    const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    const event = {
+      body: JSON.stringify({ livenessThreshold: 150 }),
+    } as APIGatewayProxyEvent;
+    const result = await handler(event);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).error).toContain("livenessThreshold");
   });
 
   it("checkWatermark returns 400 without key", async () => {

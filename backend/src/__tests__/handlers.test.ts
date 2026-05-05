@@ -3,18 +3,30 @@ import type { APIGatewayProxyEvent } from "aws-lambda";
 
 const mockEvent = {} as APIGatewayProxyEvent;
 
-describe("Lambda placeholder handlers", () => {
-  it("createSession returns 200", async () => {
+describe("Lambda handlers", () => {
+  it("createSession returns error without AWS credentials", async () => {
     const { handler } = await import("../handlers/createSession");
-    const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toHaveProperty("message");
+    const event = { body: JSON.stringify({ userId: "test-user" }) } as APIGatewayProxyEvent;
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toHaveProperty("error");
   });
 
-  it("getSession returns 200", async () => {
+  it("getSession returns 400 without session ID", async () => {
     const { handler } = await import("../handlers/getSession");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).error).toBe("Missing session ID");
+  });
+
+  it("getSession returns error with invalid session ID", async () => {
+    const { handler } = await import("../handlers/getSession");
+    const event = {
+      pathParameters: { id: "nonexistent-session" },
+    } as unknown as APIGatewayProxyEvent;
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toHaveProperty("error");
   });
 
   it("listSessions returns 200 with empty sessions", async () => {

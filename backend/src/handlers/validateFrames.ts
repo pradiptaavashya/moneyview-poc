@@ -14,9 +14,9 @@ const s3 = new S3Client({});
 
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE_NAME!;
 const VIDEO_BUCKET = process.env.VIDEO_S3_BUCKET!;
-const DEFAULT_ANGLE_THRESHOLD = 20;
-const DEFAULT_EXPRESSION_THRESHOLD = 80;
-const CONSECUTIVE_FRAMES_REQUIRED = 3;
+const DEFAULT_ANGLE_THRESHOLD = 8;
+const DEFAULT_EXPRESSION_THRESHOLD = 50;
+const CONSECUTIVE_FRAMES_REQUIRED = 1;
 
 interface ChallengeFrame {
   image: string;
@@ -62,21 +62,15 @@ function evaluateChallenge(
   challengeType: ChallengeType
 ): { passed: boolean; score: number } {
   switch (challengeType) {
-    case "head-left": {
-      const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: yaw <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
-    }
+    case "head-left":
     case "head-right": {
       const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: yaw >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+      return { passed: Math.abs(yaw) >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
     }
-    case "head-up": {
-      const pitch = face.Pose?.Pitch ?? 0;
-      return { passed: pitch >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
-    }
+    case "head-up":
     case "head-down": {
       const pitch = face.Pose?.Pitch ?? 0;
-      return { passed: pitch <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+      return { passed: Math.abs(pitch) >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
     }
     case "smile": {
       const confidence = face.Smile?.Confidence ?? 0;

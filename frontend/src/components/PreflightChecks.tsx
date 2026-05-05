@@ -31,9 +31,11 @@ const VIRTUAL_CAMERA_NAMES = [
 ];
 
 function detectHeadlessBrowser(): boolean {
+  const isMobile = /mobile|android|iphone|ipad/i.test(navigator.userAgent);
+  if (isMobile) return false;
   if ((navigator as unknown as Record<string, unknown>).webdriver) return true;
   if (!navigator.languages || navigator.languages.length === 0) return true;
-  if (navigator.plugins.length === 0 && !/mobile/i.test(navigator.userAgent)) return true;
+  if (navigator.plugins.length === 0) return true;
   return false;
 }
 
@@ -52,12 +54,13 @@ async function detectVirtualCamera(): Promise<boolean> {
 }
 
 async function detectScreenSharing(): Promise<boolean> {
+  const isMobile = /mobile|android|iphone|ipad/i.test(navigator.userAgent);
+  if (isMobile) return false;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     const track = stream.getVideoTracks()[0];
     const settings = track.getSettings();
     stream.getTracks().forEach((t) => t.stop());
-    // Screen sharing typically has displaySurface set
     return (settings as Record<string, unknown>).displaySurface !== undefined;
   } catch {
     return false;

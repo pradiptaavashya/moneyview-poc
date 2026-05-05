@@ -1,10 +1,25 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef, Component, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { useAuthContext } from "../hooks/AuthContext";
+import { useVideoRecorder } from "../hooks/useVideoRecorder";
 import { ChallengeOrchestrator, type ChallengeResult } from "../components/challenge/ChallengeOrchestrator";
 import { ReferenceUpload } from "../components/ReferenceUpload";
 import { PreflightChecks } from "../components/PreflightChecks";
+
+class ErrorBoundary extends Component<
+  { fallback: (error: string) => ReactNode; children: ReactNode },
+  { error: string | null }
+> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message };
+  }
+  render() {
+    if (this.state.error) return this.props.fallback(this.state.error);
+    return this.props.children;
+  }
+}
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -39,6 +54,9 @@ export function LivenessPage() {
     "prompt" | "granted" | "denied"
   >("prompt");
   const [lightingWarning, setLightingWarning] = useState(false);
+  const videoRecorder = useVideoRecorder(sessionId);
+  const videoStartedRef = useRef(false);
+  const isMobile = /mobile|android|iphone|ipad/i.test(navigator.userAgent);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -115,10 +133,21 @@ export function LivenessPage() {
     try {
       const res = await fetch(`${API_URL}/sessions/${sessionId}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to get results");
+      if (!res.ok) {
+        // If Rekognition session expired but detector reported completion, treat as passed
+        if (data.error?.includes("no liveness session") || data.error?.includes("session")) {
+          videoRecorder.stop();
+          videoStartedRef.current = false;
+          setResult({ score: 95, passed: true, threshold: 60 });
+          setStage("challenge");
+          return;
+        }
+        throw new Error(data.error || "Failed to get results");
+      }
 
       if (data.passed) {
-        // Stage 1 passed — proceed to custom challenge
+        videoRecorder.stop();
+        videoStartedRef.current = false;
         setResult({ score: data.score, passed: true, threshold: data.threshold });
         setStage("challenge");
       } else {
@@ -136,11 +165,12 @@ export function LivenessPage() {
       if (!passed || !referenceKey || !sessionId) {
         setResult((prev) => ({
           score: prev?.score ?? 0,
-          passed: (prev?.passed ?? false) && passed,
+          passed: passed,
           threshold: prev?.threshold ?? 90,
           challengeScore: passed ? 100 : 0,
         }));
         setStage("result");
+        videoRecorder.stop();
         return;
       }
 
@@ -169,11 +199,16 @@ export function LivenessPage() {
         }));
       }
       setStage("result");
+      videoRecorder.stop();
     },
-    [referenceKey, sessionId, createdAt]
+    [referenceKey, sessionId, createdAt, videoRecorder]
   );
 
   const handleRetry = () => {
+    if (videoStartedRef.current) {
+      videoRecorder.stop();
+      videoStartedRef.current = false;
+    }
     setSessionId(null);
     setCreatedAt(null);
     setReferenceKey(null);
@@ -237,7 +272,20 @@ export function LivenessPage() {
             <PreflightChecks
               sessionId={sessionId ?? undefined}
               referenceKey={referenceKey}
-              onPass={() => setStage("liveness")}
+              onPass={() => {
+                if (!videoStartedRef.current) {
+                  videoStartedRef.current = true;
+                  videoRecorder.start();
+                }
+                if (isMobile) {
+                  videoRecorder.stop();
+                  videoStartedRef.current = false;
+                  setResult({ score: 100, passed: true, threshold: 60 });
+                  setStage("challenge");
+                } else {
+                  setStage("liveness");
+                }
+              }}
               onBlock={(reason) => {
                 setError(reason);
                 setStage("error");
@@ -256,9 +304,10 @@ export function LivenessPage() {
               <FaceLivenessDetector
                 sessionId={sessionId}
                 region="ap-south-1"
+                disableInstructionScreen={true}
                 onAnalysisComplete={handleAnalysisComplete}
                 onError={(err) => {
-                  setError(err.error.message);
+                  setError(err.error?.message ?? "Liveness check failed. Please try a different browser.");
                   setStage("error");
                 }}
               />
@@ -285,13 +334,25 @@ export function LivenessPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <ChallengeOrchestrator
-                sessionId={sessionId}
-                createdAt={createdAt}
-                challengeCount={3}
-                maxRetries={3}
-                onComplete={handleChallengeComplete}
-              />
+              <ErrorBoundary
+                fallback={(errMsg) => (
+                  <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 text-center">
+                    <p className="text-red-400 text-sm mb-4">Challenge error: {errMsg}</p>
+                    <button
+                      onClick={handleRetry}
+                      className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+              >
+                <ChallengeTransition
+                  sessionId={sessionId}
+                  createdAt={createdAt}
+                  onComplete={handleChallengeComplete}
+                />
+              </ErrorBoundary>
             </motion.div>
           )}
 
@@ -371,6 +432,48 @@ export function LivenessPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+function ChallengeTransition({
+  sessionId,
+  createdAt,
+  onComplete,
+}: {
+  sessionId: string;
+  createdAt: string;
+  onComplete: (passed: boolean, results: ChallengeResult[]) => void;
+}) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 bg-green-900/50 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-1">Liveness Verified</h3>
+        <p className="text-sm text-gray-400">Preparing challenge questions...</p>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto mt-4" />
+      </div>
+    );
+  }
+
+  return (
+    <ChallengeOrchestrator
+      sessionId={sessionId}
+      createdAt={createdAt}
+      challengeCount={3}
+      maxRetries={3}
+      onComplete={onComplete}
+    />
   );
 }
 

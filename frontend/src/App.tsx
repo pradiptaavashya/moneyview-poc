@@ -9,6 +9,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { LivenessPage } from "./pages/LivenessPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AdminConfigPage } from "./pages/AdminConfigPage";
+import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 
 export function App() {
   return (
@@ -29,6 +30,7 @@ export function App() {
               <Route path="/liveness" element={<LivenessPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/config" element={<AdminConfigPage />} />
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

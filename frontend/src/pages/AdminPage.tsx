@@ -19,11 +19,14 @@ export function AdminPage() {
         <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-            <h3 className="text-sm font-medium text-gray-400 mb-1">Sessions</h3>
-            <p className="text-2xl font-semibold text-white">—</p>
-            <p className="text-xs text-gray-500 mt-1">Coming in slice 010</p>
-          </div>
+          <button
+            onClick={() => navigate("/admin/dashboard")}
+            className="bg-gray-900 rounded-xl p-5 border border-gray-800 text-left hover:border-indigo-500 transition-colors"
+          >
+            <h3 className="text-sm font-medium text-gray-400 mb-1">Dashboard</h3>
+            <p className="text-2xl font-semibold text-white">Sessions & Analytics</p>
+            <p className="text-xs text-gray-500 mt-1">View sessions, stats, and playback</p>
+          </button>
           <button
             onClick={() => navigate("/admin/config")}
             className="bg-gray-900 rounded-xl p-5 border border-gray-800 text-left hover:border-indigo-500 transition-colors"
@@ -32,11 +35,6 @@ export function AdminPage() {
             <p className="text-2xl font-semibold text-white">Tune</p>
             <p className="text-xs text-gray-500 mt-1">Adjust thresholds and parameters</p>
           </button>
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-            <h3 className="text-sm font-medium text-gray-400 mb-1">Analytics</h3>
-            <p className="text-2xl font-semibold text-white">—</p>
-            <p className="text-xs text-gray-500 mt-1">Coming in slice 010</p>
-          </div>
         </div>
       </motion.div>
     </div>

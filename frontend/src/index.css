@@ -4,3 +4,78 @@ body {
   margin: 0;
   min-height: 100dvh;
 }
+
+/* Amplify FaceLivenessDetector dark theme overrides */
+:root {
+  --amplify-colors-background-primary: #111827;
+  --amplify-colors-background-secondary: #1f2937;
+  --amplify-colors-font-primary: #f9fafb;
+  --amplify-colors-font-secondary: #9ca3af;
+  --amplify-colors-border-primary: #374151;
+  --amplify-colors-brand-primary-10: #312e81;
+  --amplify-colors-brand-primary-80: #6366f1;
+  --amplify-colors-brand-primary-90: #4f46e5;
+  --amplify-colors-brand-primary-100: #4338ca;
+  --amplify-radii-small: 0.5rem;
+  --amplify-radii-medium: 0.75rem;
+  --amplify-radii-large: 1rem;
+}
+
+[data-amplify-liveness-detector] {
+  background: #111827 !important;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+[data-amplify-liveness-detector] .amplify-liveness-toast,
+[data-amplify-liveness-detector] .amplify-card {
+  background: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #374151 !important;
+}
+
+[data-amplify-liveness-detector] .amplify-heading,
+[data-amplify-liveness-detector] .amplify-text {
+  color: #f9fafb !important;
+}
+
+[data-amplify-liveness-detector] .amplify-text--secondary {
+  color: #9ca3af !important;
+}
+
+[data-amplify-liveness-detector] .amplify-button--primary {
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  color: #fff !important;
+  border-radius: 0.5rem !important;
+  font-weight: 500 !important;
+}
+
+[data-amplify-liveness-detector] .amplify-button--primary:hover {
+  background: #6366f1 !important;
+}
+
+[data-amplify-liveness-detector] .amplify-button:not(.amplify-button--primary) {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f9fafb !important;
+  border-radius: 0.5rem !important;
+}
+
+[data-amplify-liveness-detector] select {
+  background: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #374151 !important;
+  border-radius: 0.5rem !important;
+}
+
+[data-amplify-liveness-detector] .amplify-alert {
+  background: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #374151 !important;
+  border-radius: 0.5rem !important;
+}
+
+[data-amplify-liveness-detector] .amplify-icon {
+  color: #9ca3af !important;
+}

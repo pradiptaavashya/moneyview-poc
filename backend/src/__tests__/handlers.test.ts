@@ -29,11 +29,11 @@ describe("Lambda handlers", () => {
     expect(JSON.parse(result.body)).toHaveProperty("error");
   });
 
-  it("listSessions returns 200 with empty sessions", async () => {
+  it("listSessions returns 500 without AWS credentials", async () => {
     const { handler } = await import("../handlers/listSessions");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body).sessions).toEqual([]);
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toHaveProperty("error");
   });
 
   it("validateFrames returns 400 without sessionId or frames", async () => {
@@ -49,10 +49,11 @@ describe("Lambda handlers", () => {
     expect(result.statusCode).toBe(400);
   });
 
-  it("storeVideo returns 200", async () => {
+  it("storeVideo returns 400 without session ID", async () => {
     const { handler } = await import("../handlers/storeVideo");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).error).toBe("Missing session ID");
   });
 
   it("getConfig returns 200", async () => {
@@ -83,15 +84,17 @@ describe("Lambda handlers", () => {
     expect(result.statusCode).toBe(400);
   });
 
-  it("getAnalytics returns 200", async () => {
+  it("getAnalytics returns 500 without AWS credentials", async () => {
     const { handler } = await import("../handlers/getAnalytics");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toHaveProperty("error");
   });
 
-  it("exportSessions returns 200", async () => {
+  it("exportSessions returns 500 without AWS credentials", async () => {
     const { handler } = await import("../handlers/exportSessions");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toHaveProperty("error");
   });
 });

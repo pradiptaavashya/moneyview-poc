@@ -1,11 +1,59 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const s3 = new S3Client({});
+const VIDEO_BUCKET = process.env.VIDEO_S3_BUCKET!;
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: "storeVideo placeholder" }),
-  };
+  try {
+    const sessionId = event.pathParameters?.id;
+    const body = JSON.parse(event.body ?? "{}");
+    const { action } = body;
+
+    if (!sessionId) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing session ID" }),
+      };
+    }
+
+    const dateKey = new Date().toISOString().split("T")[0];
+    const key = `${dateKey}/${sessionId}/video.webm`;
+
+    if (action === "get") {
+      // Generate presigned GET URL for playback
+      const command = new GetObjectCommand({ Bucket: VIDEO_BUCKET, Key: key });
+      const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, key }),
+      };
+    }
+
+    // Default: generate presigned PUT URL for upload
+    const command = new PutObjectCommand({
+      Bucket: VIDEO_BUCKET,
+      Key: key,
+      ContentType: "video/webm",
+    });
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadUrl, key }),
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal error";
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: message }),
+    };
+  }
 };

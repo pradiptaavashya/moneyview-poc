@@ -1,9 +1,11 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../hooks/AuthContext";
+import { useNetworkRecovery, NetworkBanner } from "../hooks/useNetworkRecovery";
 
 export function Layout() {
   const { user, isAdmin, logout } = useAuthContext();
   const navigate = useNavigate();
+  const { isOnline, recovering } = useNetworkRecovery();
 
   const handleLogout = async () => {
     await logout();
@@ -12,6 +14,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      <NetworkBanner isOnline={isOnline} recovering={recovering} />
       {/* Desktop top nav */}
       <nav className="hidden md:flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
         <div className="flex items-center gap-6">

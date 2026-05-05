@@ -21,6 +21,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "video_storage" {
     id     = "expire-videos"
     status = "Enabled"
 
+    filter {}
+
     expiration {
       days = var.video_retention_days
     }

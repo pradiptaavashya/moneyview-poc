@@ -4,12 +4,14 @@ import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { useAuthContext } from "../hooks/AuthContext";
 import { ChallengeOrchestrator, type ChallengeResult } from "../components/challenge/ChallengeOrchestrator";
 import { ReferenceUpload } from "../components/ReferenceUpload";
+import { PreflightChecks } from "../components/PreflightChecks";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 type Stage =
   | "upload-reference"
   | "permission-check"
+  | "preflight"
   | "liveness"
   | "loading-results"
   | "challenge"
@@ -99,7 +101,7 @@ export function LivenessPage() {
       if (!res.ok) throw new Error(data.error || "Failed to create session");
       setSessionId(data.sessionId);
       setCreatedAt(data.createdAt ?? new Date().toISOString());
-      setStage("liveness");
+      setStage("preflight");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to start session");
       setStage("error");
@@ -229,6 +231,18 @@ export function LivenessPage() {
                 Start Liveness Check
               </button>
             </motion.div>
+          )}
+
+          {stage === "preflight" && (
+            <PreflightChecks
+              sessionId={sessionId ?? undefined}
+              referenceKey={referenceKey}
+              onPass={() => setStage("liveness")}
+              onBlock={(reason) => {
+                setError(reason);
+                setStage("error");
+              }}
+            />
           )}
 
           {stage === "liveness" && sessionId && (

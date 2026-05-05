@@ -67,10 +67,10 @@ describe("Lambda handlers", () => {
     expect(result.statusCode).toBe(200);
   });
 
-  it("checkWatermark returns 200", async () => {
+  it("checkWatermark returns 400 without key", async () => {
     const { handler } = await import("../handlers/checkWatermark");
     const result = await handler(mockEvent);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(400);
   });
 
   it("uploadReference returns 400 without sessionId", async () => {

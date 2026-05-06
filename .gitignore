@@ -1,10 +1,28 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
-infrastructure/.terraform/
-infrastructure/*.tfstate*
-infrastructure/lambda_placeholder.zip
 infrastructure/lambda_dist/
-infrastructure/.terraform.lock.hcl
+infrastructure/lambda_placeholder.zip
 *.zip
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl
+infrastructure/*.tfstate*
+infrastructure/tfplan
+
+# Environment
 .env
 .env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

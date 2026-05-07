@@ -64,11 +64,11 @@ function evaluateChallenge(
   switch (challengeType) {
     case "head-left": {
       const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: yaw <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+      return { passed: yaw >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
     }
     case "head-right": {
       const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: yaw >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+      return { passed: yaw <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
     }
     case "head-up": {
       const pitch = face.Pose?.Pitch ?? 0;

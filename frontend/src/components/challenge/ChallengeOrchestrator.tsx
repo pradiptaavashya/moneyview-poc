@@ -43,7 +43,7 @@ export function ChallengeOrchestrator({
   const currentChallenge = challenges[currentIndex];
 
   const handleChallengeComplete = useCallback(
-    (passed: boolean, score: number, hint: string | null) => {
+    (passed: boolean, score: number, _hint: string | null) => {
       const result: ChallengeResult = { type: currentChallenge, passed, score };
       const newResults = [...results, result];
       setResults(newResults);
@@ -61,11 +61,6 @@ export function ChallengeOrchestrator({
     },
     [currentChallenge, currentIndex, totalChallenges, results, onComplete]
   );
-
-  const handleRetry = useCallback(() => {
-    const allPassed = results.every((r) => r.passed);
-    onComplete(allPassed, results);
-  }, [results, onComplete]);
 
   if (showSuccess) {
     return (

@@ -82,7 +82,7 @@ function evaluateChallenge(
       const confidence = face.Smile?.Confidence ?? 0;
       const value = face.Smile?.Value ?? false;
       return {
-        passed: value && confidence >= DEFAULT_EXPRESSION_THRESHOLD,
+        passed: value || confidence >= DEFAULT_EXPRESSION_THRESHOLD,
         score: confidence,
       };
     }
@@ -90,7 +90,7 @@ function evaluateChallenge(
       const confidence = face.MouthOpen?.Confidence ?? 0;
       const value = face.MouthOpen?.Value ?? false;
       return {
-        passed: value && confidence >= DEFAULT_EXPRESSION_THRESHOLD,
+        passed: value || confidence >= DEFAULT_EXPRESSION_THRESHOLD,
         score: confidence,
       };
     }

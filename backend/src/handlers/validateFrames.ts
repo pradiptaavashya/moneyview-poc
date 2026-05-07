@@ -62,15 +62,21 @@ function evaluateChallenge(
   challengeType: ChallengeType
 ): { passed: boolean; score: number } {
   switch (challengeType) {
-    case "head-left":
+    case "head-left": {
+      const yaw = face.Pose?.Yaw ?? 0;
+      return { passed: yaw <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+    }
     case "head-right": {
       const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: Math.abs(yaw) >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+      return { passed: yaw >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
     }
-    case "head-up":
+    case "head-up": {
+      const pitch = face.Pose?.Pitch ?? 0;
+      return { passed: pitch >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+    }
     case "head-down": {
       const pitch = face.Pose?.Pitch ?? 0;
-      return { passed: Math.abs(pitch) >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+      return { passed: pitch <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
     }
     case "smile": {
       const confidence = face.Smile?.Confidence ?? 0;

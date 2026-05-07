@@ -126,12 +126,25 @@ export function LivenessPage() {
 
   const handleChallengeComplete = useCallback(
     async (passed: boolean, _results: ChallengeResult[]) => {
-      if (!passed || !referenceKey || !sessionId) {
+      if (!passed) {
         setResult((prev) => ({
           score: prev?.score ?? 0,
-          passed: passed,
+          passed: false,
           threshold: prev?.threshold ?? 90,
-          challengeScore: passed ? 100 : 0,
+          challengeScore: 0,
+        }));
+        setStage("result");
+        videoRecorder.stop();
+        return;
+      }
+
+      if (!referenceKey || !sessionId) {
+        setError("No ID document uploaded. Document upload is required to complete verification.");
+        setResult((prev) => ({
+          score: prev?.score ?? 0,
+          passed: false,
+          threshold: prev?.threshold ?? 90,
+          challengeScore: 100,
         }));
         setStage("result");
         videoRecorder.stop();
@@ -342,13 +355,15 @@ export function LivenessPage() {
 
               {!result.passed && (
                 <p className="text-sm text-red-400 mb-3">
-                  {result.score < result.threshold
-                    ? "Liveness confidence too low. Ensure good lighting and face the camera directly."
-                    : result.faceMatchScore !== undefined && !result.faceMatchPassed
-                      ? "Face does not match the uploaded document."
-                      : result.challengeScore !== undefined && result.challengeScore < 100
-                        ? "Challenge verification failed. Please follow the on-screen prompts carefully."
-                        : "Verification could not be completed. Please try again."}
+                  {error
+                    ? error
+                    : result.score < result.threshold
+                      ? "Liveness confidence too low. Ensure good lighting and face the camera directly."
+                      : result.faceMatchScore !== undefined && !result.faceMatchPassed
+                        ? "Face does not match the uploaded document."
+                        : result.challengeScore !== undefined && result.challengeScore < 100
+                          ? "Challenge verification failed. Please follow the on-screen prompts carefully."
+                          : "Verification could not be completed. Please try again."}
                 </p>
               )}
 
@@ -451,7 +466,7 @@ function ChallengeTransition({
       sessionId={sessionId}
       createdAt={createdAt}
       challengeCount={3}
-      maxRetries={3}
+      maxRetries={1}
       onComplete={onComplete}
     />
   );

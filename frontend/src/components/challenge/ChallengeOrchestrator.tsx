@@ -30,15 +30,13 @@ export function ChallengeOrchestrator({
   sessionId,
   createdAt,
   challengeCount = 3,
-  maxRetries = 3,
   onComplete,
 }: ChallengeOrchestratorProps) {
-  const [challenges, setChallenges] = useState<ChallengeType[]>(() =>
+  const [challenges] = useState<ChallengeType[]>(() =>
     selectChallenges(challengeCount)
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<ChallengeResult[]>([]);
-  const [retryCount, setRetryCount] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFailure, setShowFailure] = useState(false);
   const [failHint, setFailHint] = useState<string | null>(null);
@@ -72,17 +70,8 @@ export function ChallengeOrchestrator({
   );
 
   const handleRetry = useCallback(() => {
-    if (retryCount >= maxRetries - 1) {
-      onComplete(false, results);
-      return;
-    }
-    setRetryCount((r) => r + 1);
-    setChallenges(selectChallenges(challengeCount));
-    setCurrentIndex(0);
-    setResults([]);
-    setShowFailure(false);
-    setFailHint(null);
-  }, [retryCount, maxRetries, challengeCount, results, onComplete]);
+    onComplete(false, results);
+  }, [results, onComplete]);
 
   if (showSuccess) {
     return (
@@ -107,14 +96,11 @@ export function ChallengeOrchestrator({
         </div>
         <p className="text-lg font-semibold text-white mb-1">Challenge Failed</p>
         {failHint && <p className="text-sm text-gray-400 mb-4">{failHint}</p>}
-        <p className="text-xs text-gray-500 mb-4">
-          Retry {retryCount + 1} of {maxRetries}
-        </p>
         <button
           onClick={handleRetry}
           className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
         >
-          {retryCount >= maxRetries - 1 ? "View Results" : "Retry All Challenges"}
+          View Results
         </button>
       </div>
     );

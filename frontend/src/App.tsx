@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "./hooks/AuthContext";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -28,9 +28,9 @@ export function App() {
             >
               <Route path="/" element={<DashboardPage />} />
               <Route path="/liveness" element={<LivenessPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/config" element={<AdminConfigPage />} />
-              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+              <Route path="/admin/config" element={<AdminRoute><AdminConfigPage /></AdminRoute>} />
+              <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

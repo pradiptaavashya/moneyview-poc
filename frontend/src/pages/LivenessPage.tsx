@@ -304,7 +304,7 @@ export function LivenessPage() {
               <FaceLivenessDetector
                 sessionId={sessionId}
                 region="ap-south-1"
-                disableInstructionScreen={true}
+                disableStartScreen={true}
                 onAnalysisComplete={handleAnalysisComplete}
                 onError={(err) => {
                   setError(err.error?.message ?? "Liveness check failed. Please try a different browser.");

@@ -213,6 +213,7 @@ build_frontend() {
 
   COGNITO_USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)
   COGNITO_CLIENT_ID=$(terraform output -raw cognito_client_id)
+  COGNITO_IDENTITY_POOL_ID=$(terraform output -raw cognito_identity_pool_id)
   API_URL=$(terraform output -raw api_gateway_url)
 
   cd "$FRONTEND_DIR"
@@ -220,7 +221,7 @@ build_frontend() {
 
   VITE_COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" \
   VITE_COGNITO_CLIENT_ID="$COGNITO_CLIENT_ID" \
-  VITE_COGNITO_IDENTITY_POOL_ID="" \
+  VITE_COGNITO_IDENTITY_POOL_ID="$COGNITO_IDENTITY_POOL_ID" \
   VITE_API_URL="$API_URL" \
   npm run build
 
@@ -252,15 +253,84 @@ deploy_frontend() {
   log "Frontend deployed."
 }
 
+create_users() {
+  log "Creating default users..."
+  cd "$INFRA_DIR"
+
+  local POOL_ID
+  POOL_ID=$(terraform output -raw cognito_user_pool_id)
+
+  # Admin user
+  if aws cognito-idp admin-get-user --user-pool-id "$POOL_ID" --username admin@moneyview.in --region "$REGION" >/dev/null 2>&1; then
+    log "  Admin user already exists, skipping."
+  else
+    aws cognito-idp admin-create-user \
+      --user-pool-id "$POOL_ID" \
+      --username admin@moneyview.in \
+      --user-attributes Name=email,Value=admin@moneyview.in Name=email_verified,Value=true \
+      --temporary-password 'TempPass123!' \
+      --message-action SUPPRESS \
+      --region "$REGION" >/dev/null
+
+    aws cognito-idp admin-set-user-password \
+      --user-pool-id "$POOL_ID" \
+      --username admin@moneyview.in \
+      --password 'MvAdmin@2026' \
+      --permanent \
+      --region "$REGION"
+
+    aws cognito-idp admin-add-user-to-group \
+      --user-pool-id "$POOL_ID" \
+      --username admin@moneyview.in \
+      --group-name admin \
+      --region "$REGION"
+
+    log "  Created: admin@moneyview.in (admin group)"
+  fi
+
+  # Tester user
+  if aws cognito-idp admin-get-user --user-pool-id "$POOL_ID" --username tester@moneyview.in --region "$REGION" >/dev/null 2>&1; then
+    log "  Tester user already exists, skipping."
+  else
+    aws cognito-idp admin-create-user \
+      --user-pool-id "$POOL_ID" \
+      --username tester@moneyview.in \
+      --user-attributes Name=email,Value=tester@moneyview.in Name=email_verified,Value=true \
+      --temporary-password 'TempPass123!' \
+      --message-action SUPPRESS \
+      --region "$REGION" >/dev/null
+
+    aws cognito-idp admin-set-user-password \
+      --user-pool-id "$POOL_ID" \
+      --username tester@moneyview.in \
+      --password 'MvTester@2026' \
+      --permanent \
+      --region "$REGION"
+
+    aws cognito-idp admin-add-user-to-group \
+      --user-pool-id "$POOL_ID" \
+      --username tester@moneyview.in \
+      --group-name tester \
+      --region "$REGION"
+
+    log "  Created: tester@moneyview.in (tester group)"
+  fi
+
+  log "Users ready."
+}
+
 print_outputs() {
   log "=== Deployment Complete ==="
   cd "$INFRA_DIR"
   echo ""
+  echo "  CloudFront URL:   https://$(terraform output -raw cloudfront_domain_name 2>/dev/null || echo 'N/A')"
   echo "  API URL:          $(terraform output -raw api_gateway_url 2>/dev/null || echo 'N/A')"
   echo "  Cognito Pool ID:  $(terraform output -raw cognito_user_pool_id 2>/dev/null || echo 'N/A')"
   echo "  Cognito Client:   $(terraform output -raw cognito_client_id 2>/dev/null || echo 'N/A')"
-  echo "  Video Bucket:     $(terraform output -raw video_bucket_name 2>/dev/null || echo 'N/A')"
-  echo "  Ref Docs Bucket:  $(terraform output -raw reference_docs_bucket_name 2>/dev/null || echo 'N/A')"
+  echo "  Identity Pool:    $(terraform output -raw cognito_identity_pool_id 2>/dev/null || echo 'N/A')"
+  echo ""
+  echo "  Admin login:      admin@moneyview.in / MvAdmin@2026"
+  echo "  Tester login:     tester@moneyview.in / MvTester@2026"
   echo ""
 }
 
@@ -284,5 +354,6 @@ if [[ "$SKIP_FRONTEND" == false && "$PLAN_ONLY" == false ]]; then
 fi
 
 if [[ "$PLAN_ONLY" == false ]]; then
+  create_users
   print_outputs
 fi

@@ -1,6 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { useState, useEffect, useRef } from "react";
 
 type Step = "photo" | "document" | "verification";
 
@@ -25,13 +23,12 @@ export function DemoPage() {
   const [cardDetected, setCardDetected] = useState(false);
   const [cardCaptured, setCardCaptured] = useState(false);
   const [cardThumb, setCardThumb] = useState<string | null>(null);
-  const [recording, setRecording] = useState(true);
+  const [recording] = useState(true);
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { from: "agent", text: "Please show your face clearly to the camera" },
   ]);
   const [chatInput, setChatInput] = useState("");
-  const detectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     async function startCamera() {

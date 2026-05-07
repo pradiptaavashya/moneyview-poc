@@ -58,6 +58,11 @@ output "cognito_client_id" {
   value       = aws_cognito_user_pool_client.web.id
 }
 
+output "cognito_identity_pool_id" {
+  description = "Cognito Identity Pool ID for AWS credentials"
+  value       = aws_cognito_identity_pool.main.id
+}
+
 output "kms_key_arn" {
   description = "KMS key ARN for encryption"
   value       = aws_kms_key.main.arn

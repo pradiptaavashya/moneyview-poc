@@ -83,13 +83,17 @@ Deployment takes ~5 minutes on first run (CloudFront distribution creation is th
 After deployment completes, you'll see:
 
 ```
+  CloudFront URL:   https://dxxxxxxxxxxxxxx.cloudfront.net
   API URL:          https://xxxxxx.execute-api.ap-south-1.amazonaws.com
   Cognito Pool ID:  ap-south-1_XXXXXXXXX
   Cognito Client:   xxxxxxxxxxxxxxxxxxxxxxxxxx
-  CloudFront URL:   dxxxxxxxxxxxxxx.cloudfront.net
+  Identity Pool:    ap-south-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+  Admin login:      admin@moneyview.in / MvAdmin@2026
+  Tester login:     tester@moneyview.in / MvTester@2026
 ```
 
-The **CloudFront URL** is your live application.
+The **CloudFront URL** is your live application. Users are created automatically during deployment.
 
 ---
 
@@ -129,43 +133,38 @@ Options:
 
 ## Post-Deployment Setup
 
-### Create Admin User
+Users are created automatically by the deploy script. No manual steps required.
+
+Default credentials:
+- **Admin:** admin@moneyview.in / MvAdmin@2026
+- **Tester:** tester@moneyview.in / MvTester@2026
+
+To create additional users manually:
 
 ```bash
-# Create a user in the Cognito pool
+POOL_ID=$(cd infrastructure && terraform output -raw cognito_user_pool_id)
+
 aws cognito-idp admin-create-user \
-  --user-pool-id <POOL_ID> \
-  --username admin@moneyview.in \
-  --user-attributes Name=email,Value=admin@moneyview.in Name=email_verified,Value=true \
+  --user-pool-id "$POOL_ID" \
+  --username user@example.com \
+  --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true \
   --temporary-password 'TempPass123!' \
+  --message-action SUPPRESS \
   --region ap-south-1
 
-# Add to admin group
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id <POOL_ID> \
-  --username admin@moneyview.in \
-  --group-name admin \
-  --region ap-south-1
-```
-
-### Create Tester User
-
-```bash
-aws cognito-idp admin-create-user \
-  --user-pool-id <POOL_ID> \
-  --username tester@moneyview.in \
-  --user-attributes Name=email,Value=tester@moneyview.in Name=email_verified,Value=true \
-  --temporary-password 'TempPass123!' \
+aws cognito-idp admin-set-user-password \
+  --user-pool-id "$POOL_ID" \
+  --username user@example.com \
+  --password 'YourPassword123!' \
+  --permanent \
   --region ap-south-1
 
 aws cognito-idp admin-add-user-to-group \
-  --user-pool-id <POOL_ID> \
-  --username tester@moneyview.in \
+  --user-pool-id "$POOL_ID" \
+  --username user@example.com \
   --group-name tester \
   --region ap-south-1
 ```
-
-Users will be prompted to set a new password on first login.
 
 ---
 

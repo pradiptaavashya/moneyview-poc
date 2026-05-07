@@ -37,7 +37,7 @@ export const handler = async (
         SourceImage: {
           S3Object: {
             Bucket: VIDEO_BUCKET,
-            Name: `audit/${sessionId}/liveness-reference.jpg`,
+            Name: `audit/${sessionId}/reference.jpg`,
           },
         },
         TargetImage: {

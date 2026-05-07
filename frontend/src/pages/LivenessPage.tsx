@@ -337,22 +337,45 @@ export function LivenessPage() {
               </div>
 
               <h2 className="text-xl font-semibold text-white mb-1">
-                {result.passed ? "Liveness Verified" : "Liveness Check Failed"}
+                {result.passed ? "Verification Successful" : "Verification Failed"}
               </h2>
-              <p className="text-sm text-gray-400 mb-2">
-                Liveness: {result.score.toFixed(1)}% (threshold: {result.threshold}%)
-              </p>
-              {result.challengeScore !== undefined && (
-                <p className="text-sm text-gray-400 mb-2">
-                  Challenges: {result.challengeScore === 100 ? "All passed" : "Failed"}
+
+              {!result.passed && (
+                <p className="text-sm text-red-400 mb-3">
+                  {result.score < result.threshold
+                    ? "Liveness confidence too low. Ensure good lighting and face the camera directly."
+                    : result.faceMatchScore !== undefined && !result.faceMatchPassed
+                      ? "Face does not match the uploaded document."
+                      : result.challengeScore !== undefined && result.challengeScore < 100
+                        ? "Challenge verification failed. Please follow the on-screen prompts carefully."
+                        : "Verification could not be completed. Please try again."}
                 </p>
               )}
-              {result.faceMatchScore !== undefined && (
-                <p className={`text-sm mb-2 ${result.faceMatchPassed ? "text-green-400" : "text-red-400"}`}>
-                  Face match: {result.faceMatchScore.toFixed(1)}%
-                  {!result.faceMatchPassed && " — does not match reference"}
-                </p>
-              )}
+
+              <div className="text-left bg-gray-800/50 rounded-lg p-3 space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Liveness</span>
+                  <span className={result.score >= result.threshold ? "text-green-400" : "text-red-400"}>
+                    {result.score.toFixed(1)}% {result.score >= result.threshold ? "✓" : "✗"}
+                  </span>
+                </div>
+                {result.challengeScore !== undefined && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Challenges</span>
+                    <span className={result.challengeScore === 100 ? "text-green-400" : "text-red-400"}>
+                      {result.challengeScore === 100 ? "Passed ✓" : "Failed ✗"}
+                    </span>
+                  </div>
+                )}
+                {result.faceMatchScore !== undefined && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Face match</span>
+                    <span className={result.faceMatchPassed ? "text-green-400" : "text-red-400"}>
+                      {result.faceMatchScore.toFixed(1)}% {result.faceMatchPassed ? "✓" : "✗"}
+                    </span>
+                  </div>
+                )}
+              </div>
               <div className="mb-4" />
 
               <button

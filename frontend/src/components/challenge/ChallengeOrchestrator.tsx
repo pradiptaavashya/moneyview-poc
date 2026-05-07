@@ -38,8 +38,6 @@ export function ChallengeOrchestrator({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<ChallengeResult[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showFailure, setShowFailure] = useState(false);
-  const [failHint, setFailHint] = useState<string | null>(null);
 
   const totalChallenges = challenges.length;
   const currentChallenge = challenges[currentIndex];
@@ -50,12 +48,6 @@ export function ChallengeOrchestrator({
       const newResults = [...results, result];
       setResults(newResults);
 
-      if (!passed) {
-        setFailHint(hint);
-        setShowFailure(true);
-        return;
-      }
-
       if (currentIndex < totalChallenges - 1) {
         setShowSuccess(true);
         setTimeout(() => {
@@ -63,14 +55,16 @@ export function ChallengeOrchestrator({
           setCurrentIndex((i) => i + 1);
         }, 1000);
       } else {
-        onComplete(true, newResults);
+        const allPassed = newResults.every((r) => r.passed);
+        onComplete(allPassed, newResults);
       }
     },
     [currentChallenge, currentIndex, totalChallenges, results, onComplete]
   );
 
   const handleRetry = useCallback(() => {
-    onComplete(false, results);
+    const allPassed = results.every((r) => r.passed);
+    onComplete(allPassed, results);
   }, [results, onComplete]);
 
   if (showSuccess) {
@@ -86,25 +80,6 @@ export function ChallengeOrchestrator({
     );
   }
 
-  if (showFailure) {
-    return (
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 text-center">
-        <div className="w-16 h-16 mx-auto mb-3 bg-red-900/50 rounded-full flex items-center justify-center">
-          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </div>
-        <p className="text-lg font-semibold text-white mb-1">Challenge Failed</p>
-        {failHint && <p className="text-sm text-gray-400 mb-4">{failHint}</p>}
-        <button
-          onClick={handleRetry}
-          className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-        >
-          View Results
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full">

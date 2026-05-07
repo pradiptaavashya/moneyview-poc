@@ -26,6 +26,7 @@ Options:
   --region REGION    AWS region (default: ap-south-1)
   --skip-frontend    Skip frontend build and deploy
   --skip-backend     Skip lambda build and deploy
+  --skip-infra       Skip terraform (infra unchanged, just redeploy code)
   --plan-only        Run terraform plan without applying
   --auto-approve     Skip terraform apply confirmation
   --bootstrap        Create state backend (S3 + DynamoDB) before first deploy
@@ -36,6 +37,7 @@ Examples:
   ./deploy.sh                          # Full deploy (interactive)
   ./deploy.sh --auto-approve           # Full deploy (non-interactive)
   ./deploy.sh --skip-frontend          # Backend-only deploy
+  ./deploy.sh --skip-infra             # Redeploy code only (no terraform)
 EOF
   exit 0
 }
@@ -44,6 +46,7 @@ ENV="dev"
 REGION="ap-south-1"
 SKIP_FRONTEND=false
 SKIP_BACKEND=false
+SKIP_INFRA=false
 PLAN_ONLY=false
 AUTO_APPROVE=""
 BOOTSTRAP=false
@@ -54,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --region) REGION="$2"; shift 2 ;;
     --skip-frontend) SKIP_FRONTEND=true; shift ;;
     --skip-backend) SKIP_BACKEND=true; shift ;;
+    --skip-infra) SKIP_INFRA=true; shift ;;
     --plan-only) PLAN_ONLY=true; shift ;;
     --auto-approve) AUTO_APPROVE="-auto-approve"; shift ;;
     --bootstrap) BOOTSTRAP=true; shift ;;
@@ -346,14 +350,19 @@ if [[ "$SKIP_BACKEND" == false ]]; then
   build_lambdas
 fi
 
-deploy_infrastructure
+if [[ "$SKIP_INFRA" == false ]]; then
+  deploy_infrastructure
+fi
 
 if [[ "$SKIP_FRONTEND" == false && "$PLAN_ONLY" == false ]]; then
   build_frontend
   deploy_frontend
 fi
 
-if [[ "$PLAN_ONLY" == false ]]; then
+if [[ "$PLAN_ONLY" == false && "$SKIP_INFRA" == false ]]; then
   create_users
+fi
+
+if [[ "$PLAN_ONLY" == false ]]; then
   print_outputs
 fi

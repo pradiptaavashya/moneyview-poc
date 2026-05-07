@@ -3,7 +3,7 @@ import type { ChallengeType } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const FRAME_RATE = 4;
-const CHALLENGE_TIMEOUT = 8000;
+const CHALLENGE_TIMEOUT = 12000;
 
 interface ChallengeScreenProps {
   sessionId: string;

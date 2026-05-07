@@ -14,8 +14,8 @@ const s3 = new S3Client({});
 
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE_NAME!;
 const VIDEO_BUCKET = process.env.VIDEO_S3_BUCKET!;
-const DEFAULT_ANGLE_THRESHOLD = 8;
-const DEFAULT_EXPRESSION_THRESHOLD = 50;
+const DEFAULT_ANGLE_THRESHOLD = 5;
+const DEFAULT_EXPRESSION_THRESHOLD = 40;
 const CONSECUTIVE_FRAMES_REQUIRED = 1;
 
 interface ChallengeFrame {

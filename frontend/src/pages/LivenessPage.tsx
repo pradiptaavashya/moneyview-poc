@@ -53,7 +53,6 @@ export function LivenessPage() {
   const [cameraPermission, setCameraPermission] = useState<
     "prompt" | "granted" | "denied"
   >("prompt");
-  const [lightingWarning, setLightingWarning] = useState(false);
   const videoRecorder = useVideoRecorder(sessionId);
   const videoStartedRef = useRef(false);
   const isMobile = /mobile|android|iphone|ipad/i.test(navigator.userAgent);
@@ -70,44 +69,9 @@ export function LivenessPage() {
       });
   }, []);
 
-  const checkLighting = useCallback(async (): Promise<boolean> => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-      });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      await video.play();
-
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(video, 0, 0);
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      let totalBrightness = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        totalBrightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
-      }
-      const avgBrightness = totalBrightness / (data.length / 4);
-
-      stream.getTracks().forEach((t) => t.stop());
-      return avgBrightness > 50;
-    } catch {
-      return true;
-    }
-  }, []);
 
   const startSession = useCallback(async () => {
     setError(null);
-
-    const bright = await checkLighting();
-    if (!bright) {
-      setLightingWarning(true);
-      return;
-    }
 
     try {
       const res = await fetch(`${API_URL}/sessions`, {
@@ -124,7 +88,7 @@ export function LivenessPage() {
       setError(err instanceof Error ? err.message : "Failed to start session");
       setStage("error");
     }
-  }, [checkLighting, user]);
+  }, [user]);
 
   const handleAnalysisComplete = useCallback(async () => {
     if (!sessionId) return;
@@ -214,7 +178,6 @@ export function LivenessPage() {
     setReferenceKey(null);
     setResult(null);
     setError(null);
-    setLightingWarning(false);
     setStage("upload-reference");
   };
 
@@ -252,12 +215,6 @@ export function LivenessPage() {
                 Position your face within the oval and follow the on-screen
                 prompts. Colored lights will flash briefly.
               </p>
-
-              {lightingWarning && (
-                <div className="mb-4 p-3 rounded-lg bg-yellow-900/30 border border-yellow-700 text-yellow-300 text-sm">
-                  Move to a brighter area for better results.
-                </div>
-              )}
 
               <button
                 onClick={startSession}

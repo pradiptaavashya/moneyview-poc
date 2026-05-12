@@ -17,6 +17,7 @@ export function ReferenceUpload({ sessionId, onUpload, onSkip }: ReferenceUpload
     Width: number; Height: number; Left: number; Top: number;
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -85,19 +86,44 @@ export function ReferenceUpload({ sessionId, onUpload, onSkip }: ReferenceUpload
         <div
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
-          onClick={() => fileRef.current?.click()}
-          className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-gray-600 transition-colors"
+          className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center"
         >
           <svg className="w-10 h-10 mx-auto mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <p className="text-sm text-gray-400">Drop image here or tap to select</p>
-          <p className="text-xs text-gray-600 mt-1">JPG, PNG</p>
+          <p className="text-sm text-gray-400 mb-4">Upload a clear photo of your ID</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            >
+              Take Photo
+            </button>
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.click()}
+              className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white text-sm font-medium transition-colors"
+            >
+              Gallery
+            </button>
+          </div>
+          <p className="text-xs text-gray-600 mt-3">JPG, PNG, HEIC</p>
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/heic,image/heif"
             capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+            }}
+          />
+          <input
+            ref={galleryRef}
+            type="file"
+            accept="image/jpeg,image/png,image/heic,image/heif"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];

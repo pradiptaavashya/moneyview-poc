@@ -66,6 +66,7 @@ export function useAuth() {
   const login = async (email: string, password: string) => {
     setState((s) => ({ ...s, error: null, loading: true }));
     try {
+      await signOut();
       await signIn({ username: email, password });
       await checkUser();
     } catch (err: unknown) {

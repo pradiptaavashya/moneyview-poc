@@ -84,7 +84,26 @@ export function ChallengeScreen({
     let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => { facialTransformationMatrixes?: { data: number[] }[] } } | null = null;
 
     async function init() {
-      // Load MediaPipe dynamically
+      // Start camera immediately — don't wait for MediaPipe
+      try {
+        const stream = sharedStream && sharedStream.active
+          ? sharedStream
+          : await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "user", width: 640, height: 480 },
+            });
+        if (videoRef.current && mounted) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          setStatus("active");
+          timerRef.current = setTimeout(submitFrames, challengeTimeout);
+          startProcessing(null);
+        }
+      } catch {
+        if (mounted) onComplete(false, 0, "Could not access camera");
+        return;
+      }
+
+      // Load MediaPipe in background for visual feedback (non-blocking)
       try {
         const mp = await import("@mediapipe/tasks-vision");
         const FilesetResolver = mp.FilesetResolver;
@@ -103,26 +122,7 @@ export function ChallengeScreen({
           outputFacialTransformationMatrixes: true,
         });
       } catch {
-        // MediaPipe not available — continue without client detection
-      }
-
-      // Start camera — reuse shared stream if available to avoid mobile contention
-      try {
-        const stream = sharedStream && sharedStream.active
-          ? sharedStream
-          : await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: "user", width: 640, height: 480 },
-            });
-        if (videoRef.current && mounted) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setStatus("active");
-          timerRef.current = setTimeout(submitFrames, challengeTimeout);
-          startProcessing(landmarker);
-        }
-      } catch {
-        // Camera failed — auto-submit empty
-        if (mounted) onComplete(false, 0, "Could not access camera");
+        // MediaPipe not available — visual feedback disabled, server still validates
       }
     }
 

@@ -53,7 +53,7 @@ export const handler = async (
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: SessionId }),
+      body: JSON.stringify({ sessionId: SessionId, createdAt: now }),
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";

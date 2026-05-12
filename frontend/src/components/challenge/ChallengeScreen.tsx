@@ -3,7 +3,7 @@ import type { ChallengeType } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const FRAME_RATE = 4;
-const CHALLENGE_TIMEOUT = 12000;
+const DEFAULT_TIMEOUT_S = 8;
 
 interface ChallengeScreenProps {
   sessionId: string;
@@ -11,6 +11,8 @@ interface ChallengeScreenProps {
   challengeType: ChallengeType;
   currentIndex: number;
   totalChallenges: number;
+  timeWindow?: number;
+  stream?: MediaStream | null;
   onComplete: (passed: boolean, score: number, hint: string | null) => void;
 }
 
@@ -38,8 +40,11 @@ export function ChallengeScreen({
   challengeType,
   currentIndex,
   totalChallenges,
+  timeWindow,
+  stream: sharedStream,
   onComplete,
 }: ChallengeScreenProps) {
+  const challengeTimeout = (timeWindow ?? DEFAULT_TIMEOUT_S) * 1000;
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const capturedFrames = useRef<{ image: string; timestamp: number }[]>([]);
@@ -101,16 +106,18 @@ export function ChallengeScreen({
         // MediaPipe not available — continue without client detection
       }
 
-      // Start camera
+      // Start camera — reuse shared stream if available to avoid mobile contention
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 640, height: 480 },
-        });
+        const stream = sharedStream && sharedStream.active
+          ? sharedStream
+          : await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "user", width: 640, height: 480 },
+            });
         if (videoRef.current && mounted) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
           setStatus("active");
-          timerRef.current = setTimeout(submitFrames, CHALLENGE_TIMEOUT);
+          timerRef.current = setTimeout(submitFrames, challengeTimeout);
           startProcessing(landmarker);
         }
       } catch {
@@ -172,17 +179,14 @@ export function ChallengeScreen({
       mounted = false;
       if (timerRef.current) clearTimeout(timerRef.current);
       cancelAnimationFrame(animFrameRef.current);
-      const stream = videoRef.current?.srcObject as MediaStream | null;
-      stream?.getTracks().forEach((t) => t.stop());
+      // Only stop tracks if we created our own stream (not the shared recorder stream)
+      const activeStream = videoRef.current?.srcObject as MediaStream | null;
+      if (activeStream && activeStream !== sharedStream) {
+        activeStream.getTracks().forEach((t) => t.stop());
+      }
     };
-  }, [submitFrames, challengeType, onComplete]);
+  }, [submitFrames, challengeType, onComplete, sharedStream]);
 
-  useEffect(() => {
-    if (clientDetected && status === "active" && capturedFrames.current.length >= 3) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      submitFrames();
-    }
-  }, [clientDetected, status, submitFrames]);
 
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">

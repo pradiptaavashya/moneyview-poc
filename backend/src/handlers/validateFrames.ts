@@ -5,7 +5,7 @@ import {
   type FaceDetail,
 } from "@aws-sdk/client-rekognition";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, UpdateCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const rekognition = new RekognitionClient({});
@@ -14,9 +14,37 @@ const s3 = new S3Client({});
 
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE_NAME!;
 const VIDEO_BUCKET = process.env.VIDEO_S3_BUCKET!;
-const DEFAULT_ANGLE_THRESHOLD = 5;
-const DEFAULT_EXPRESSION_THRESHOLD = 40;
-const CONSECUTIVE_FRAMES_REQUIRED = 1;
+const CONFIG_TABLE = process.env.CONFIG_TABLE_NAME!;
+
+interface ChallengeConfig {
+  headTurnAngle: number;
+  smileThreshold: number;
+  mouthOpenThreshold: number;
+  consecutiveFrames: number;
+}
+
+const CONFIG_DEFAULTS: ChallengeConfig = {
+  headTurnAngle: 20,
+  smileThreshold: 80,
+  mouthOpenThreshold: 80,
+  consecutiveFrames: 3,
+};
+
+async function getConfig(): Promise<ChallengeConfig> {
+  try {
+    const result = await ddb.send(
+      new GetCommand({ TableName: CONFIG_TABLE, Key: { pk: "config" } })
+    );
+    return {
+      headTurnAngle: result.Item?.headTurnAngle ?? CONFIG_DEFAULTS.headTurnAngle,
+      smileThreshold: result.Item?.smileThreshold ?? CONFIG_DEFAULTS.smileThreshold,
+      mouthOpenThreshold: result.Item?.mouthOpenThreshold ?? CONFIG_DEFAULTS.mouthOpenThreshold,
+      consecutiveFrames: result.Item?.consecutiveFrames ?? CONFIG_DEFAULTS.consecutiveFrames,
+    };
+  } catch {
+    return CONFIG_DEFAULTS;
+  }
+}
 
 interface ChallengeFrame {
   image: string;
@@ -59,30 +87,31 @@ async function detectFace(imageBytes: Buffer): Promise<FaceDetail | null> {
 
 function evaluateChallenge(
   face: FaceDetail,
-  challengeType: ChallengeType
+  challengeType: ChallengeType,
+  config: ChallengeConfig
 ): { passed: boolean; score: number } {
   switch (challengeType) {
     case "head-left": {
       const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: yaw >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+      return { passed: yaw >= config.headTurnAngle, score: Math.abs(yaw) };
     }
     case "head-right": {
       const yaw = face.Pose?.Yaw ?? 0;
-      return { passed: yaw <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(yaw) };
+      return { passed: yaw <= -config.headTurnAngle, score: Math.abs(yaw) };
     }
     case "head-up": {
       const pitch = face.Pose?.Pitch ?? 0;
-      return { passed: pitch >= DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+      return { passed: pitch >= config.headTurnAngle, score: Math.abs(pitch) };
     }
     case "head-down": {
       const pitch = face.Pose?.Pitch ?? 0;
-      return { passed: pitch <= -DEFAULT_ANGLE_THRESHOLD, score: Math.abs(pitch) };
+      return { passed: pitch <= -config.headTurnAngle, score: Math.abs(pitch) };
     }
     case "smile": {
       const confidence = face.Smile?.Confidence ?? 0;
       const value = face.Smile?.Value ?? false;
       return {
-        passed: value || confidence >= DEFAULT_EXPRESSION_THRESHOLD,
+        passed: value || confidence >= config.smileThreshold,
         score: confidence,
       };
     }
@@ -90,7 +119,7 @@ function evaluateChallenge(
       const confidence = face.MouthOpen?.Confidence ?? 0;
       const value = face.MouthOpen?.Value ?? false;
       return {
-        passed: value || confidence >= DEFAULT_EXPRESSION_THRESHOLD,
+        passed: value || confidence >= config.mouthOpenThreshold,
         score: confidence,
       };
     }
@@ -113,6 +142,7 @@ export const handler = async (
     }
 
     const type = challengeType as ChallengeType;
+    const config = await getConfig();
     let consecutivePasses = 0;
     let maxConsecutive = 0;
     let bestScore = 0;
@@ -135,7 +165,7 @@ export const handler = async (
         continue;
       }
 
-      const { passed, score } = evaluateChallenge(face, type);
+      const { passed, score } = evaluateChallenge(face, type, config);
 
       if (passed) {
         consecutivePasses++;
@@ -146,7 +176,7 @@ export const handler = async (
       }
     }
 
-    const challengePassed = maxConsecutive >= CONSECUTIVE_FRAMES_REQUIRED;
+    const challengePassed = maxConsecutive >= config.consecutiveFrames;
 
     await ddb.send(
       new UpdateCommand({
@@ -177,7 +207,7 @@ export const handler = async (
         passed: challengePassed,
         bestScore,
         consecutiveFrames: maxConsecutive,
-        requiredConsecutive: CONSECUTIVE_FRAMES_REQUIRED,
+        requiredConsecutive: config.consecutiveFrames,
         framesAnalyzed: frames.length,
         hint: challengePassed ? null : HINTS[type],
       }),

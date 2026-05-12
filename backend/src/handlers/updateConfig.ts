@@ -11,7 +11,7 @@ const BOUNDS: Record<string, { min: number; max: number }> = {
   smileThreshold: { min: 50, max: 99 },
   mouthOpenThreshold: { min: 50, max: 99 },
   consecutiveFrames: { min: 1, max: 10 },
-  timeWindow: { min: 3, max: 10 },
+  timeWindow: { min: 3, max: 12 },
   challengeCount: { min: 1, max: 6 },
   maxRetries: { min: 1, max: 5 },
   faceMatchThreshold: { min: 70, max: 99 },

@@ -42,6 +42,20 @@ interface LivenessResult {
   faceMatchPassed?: boolean;
 }
 
+interface LivenessConfig {
+  challengeCount: number;
+  maxRetries: number;
+  timeWindow: number;
+  enabledChallenges: string[];
+}
+
+const CONFIG_DEFAULTS: LivenessConfig = {
+  challengeCount: 3,
+  maxRetries: 3,
+  timeWindow: 8,
+  enabledChallenges: ["head-left", "head-right", "head-up", "head-down", "smile", "mouth-open"],
+};
+
 export function LivenessPage() {
   const { user } = useAuthContext();
   const [stage, setStage] = useState<Stage>("upload-reference");
@@ -50,12 +64,12 @@ export function LivenessPage() {
   const [referenceKey, setReferenceKey] = useState<string | null>(null);
   const [result, setResult] = useState<LivenessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [config, setConfig] = useState<LivenessConfig>(CONFIG_DEFAULTS);
   const [cameraPermission, setCameraPermission] = useState<
     "prompt" | "granted" | "denied"
   >("prompt");
   const videoRecorder = useVideoRecorder(sessionId);
   const videoStartedRef = useRef(false);
-  const isMobile = /mobile|android|iphone|ipad/i.test(navigator.userAgent);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -67,6 +81,18 @@ export function LivenessPage() {
       .catch(() => {
         setCameraPermission("denied");
       });
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_URL}/config`)
+      .then((r) => r.json())
+      .then((data) => setConfig({
+        challengeCount: data.challengeCount ?? CONFIG_DEFAULTS.challengeCount,
+        maxRetries: data.maxRetries ?? CONFIG_DEFAULTS.maxRetries,
+        timeWindow: data.timeWindow ?? CONFIG_DEFAULTS.timeWindow,
+        enabledChallenges: data.enabledChallenges ?? CONFIG_DEFAULTS.enabledChallenges,
+      }))
+      .catch(() => {});
   }, []);
 
 
@@ -95,13 +121,11 @@ export function LivenessPage() {
     setStage("loading-results");
 
     try {
-      const res = await fetch(`${API_URL}/sessions/${sessionId}`);
+      const res = await fetch(`${API_URL}/sessions/${sessionId}?createdAt=${encodeURIComponent(createdAt!)}`);
       const data = await res.json();
       if (!res.ok) {
         // If Rekognition session expired but detector reported completion, treat as passed
         if (data.error?.includes("no liveness session") || data.error?.includes("session")) {
-          videoRecorder.stop();
-          videoStartedRef.current = false;
           setResult({ score: 95, passed: true, threshold: 60 });
           setStage("challenge");
           return;
@@ -110,8 +134,6 @@ export function LivenessPage() {
       }
 
       if (data.passed) {
-        videoRecorder.stop();
-        videoStartedRef.current = false;
         setResult({ score: data.score, passed: true, threshold: data.threshold });
         setStage("challenge");
       } else {
@@ -247,14 +269,7 @@ export function LivenessPage() {
                   videoStartedRef.current = true;
                   videoRecorder.start();
                 }
-                if (isMobile) {
-                  videoRecorder.stop();
-                  videoStartedRef.current = false;
-                  setResult({ score: 100, passed: true, threshold: 60 });
-                  setStage("challenge");
-                } else {
-                  setStage("liveness");
-                }
+                setStage("liveness");
               }}
               onBlock={(reason) => {
                 setError(reason);
@@ -320,6 +335,11 @@ export function LivenessPage() {
                 <ChallengeTransition
                   sessionId={sessionId}
                   createdAt={createdAt}
+                  stream={videoRecorder.getStream()}
+                  challengeCount={config.challengeCount}
+                  maxRetries={config.maxRetries}
+                  timeWindow={config.timeWindow}
+                  enabledChallenges={config.enabledChallenges}
                   onComplete={handleChallengeComplete}
                 />
               </ErrorBoundary>
@@ -433,10 +453,20 @@ export function LivenessPage() {
 function ChallengeTransition({
   sessionId,
   createdAt,
+  stream,
+  challengeCount,
+  maxRetries,
+  timeWindow,
+  enabledChallenges,
   onComplete,
 }: {
   sessionId: string;
   createdAt: string;
+  stream: MediaStream | null;
+  challengeCount: number;
+  maxRetries: number;
+  timeWindow: number;
+  enabledChallenges: string[];
   onComplete: (passed: boolean, results: ChallengeResult[]) => void;
 }) {
   const [ready, setReady] = useState(false);
@@ -465,8 +495,11 @@ function ChallengeTransition({
     <ChallengeOrchestrator
       sessionId={sessionId}
       createdAt={createdAt}
-      challengeCount={3}
-      maxRetries={1}
+      challengeCount={challengeCount}
+      maxRetries={maxRetries}
+      timeWindow={timeWindow}
+      enabledChallenges={enabledChallenges}
+      stream={stream}
       onComplete={onComplete}
     />
   );

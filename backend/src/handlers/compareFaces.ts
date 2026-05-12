@@ -4,7 +4,7 @@ import {
   CompareFacesCommand,
 } from "@aws-sdk/client-rekognition";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, UpdateCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 const rekognition = new RekognitionClient({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -12,7 +12,19 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE_NAME!;
 const VIDEO_BUCKET = process.env.VIDEO_S3_BUCKET!;
 const REFERENCE_BUCKET = process.env.REFERENCE_DOC_S3_BUCKET!;
+const CONFIG_TABLE = process.env.CONFIG_TABLE_NAME!;
 const DEFAULT_MATCH_THRESHOLD = 90;
+
+async function getFaceMatchThreshold(): Promise<number> {
+  try {
+    const result = await ddb.send(
+      new GetCommand({ TableName: CONFIG_TABLE, Key: { pk: "config" } })
+    );
+    return result.Item?.faceMatchThreshold ?? DEFAULT_MATCH_THRESHOLD;
+  } catch {
+    return DEFAULT_MATCH_THRESHOLD;
+  }
+}
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -29,6 +41,8 @@ export const handler = async (
         body: JSON.stringify({ error: "Missing sessionId or referenceKey" }),
       };
     }
+
+    const matchThreshold = await getFaceMatchThreshold();
 
     // Source: liveness reference image (stored by Rekognition in video bucket)
     // Target: uploaded reference document (in reference docs bucket)
@@ -52,7 +66,7 @@ export const handler = async (
 
     const similarity =
       compareResult.FaceMatches?.[0]?.Similarity ?? 0;
-    const passed = similarity >= DEFAULT_MATCH_THRESHOLD;
+    const passed = similarity >= matchThreshold;
 
     if (createdAt) {
       await ddb.send(
@@ -77,7 +91,7 @@ export const handler = async (
       body: JSON.stringify({
         similarity,
         passed,
-        threshold: DEFAULT_MATCH_THRESHOLD,
+        threshold: matchThreshold,
         message: passed
           ? "Face matches reference document"
           : "Face does not match reference document",

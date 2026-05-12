@@ -163,7 +163,7 @@ export function AdminConfigPage() {
             <SliderField
               label="Time Window"
               value={config.timeWindow}
-              min={3} max={10} unit="s"
+              min={3} max={12} unit="s"
               onChange={(v) => update("timeWindow", v)}
             />
             <SliderField

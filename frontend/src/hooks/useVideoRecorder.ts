@@ -4,6 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 export function useVideoRecorder(sessionId: string | null) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [recording, setRecording] = useState(false);
 
@@ -12,6 +13,7 @@ export function useVideoRecorder(sessionId: string | null) {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: 720, height: 960 },
       });
+      streamRef.current = stream;
       const recorder = new MediaRecorder(stream, {
         mimeType: "video/webm;codecs=vp9",
       });
@@ -64,11 +66,14 @@ export function useVideoRecorder(sessionId: string | null) {
 
         // Stop all tracks
         recorder.stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         resolve();
       };
       recorder.stop();
     });
   }, [sessionId]);
 
-  return { start, stop, recording };
+  const getStream = useCallback(() => streamRef.current, []);
+
+  return { start, stop, recording, getStream };
 }

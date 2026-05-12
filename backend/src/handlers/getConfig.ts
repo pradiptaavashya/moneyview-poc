@@ -11,7 +11,7 @@ const DEFAULTS: Record<string, number | number[] | string[]> = {
   smileThreshold: 80,
   mouthOpenThreshold: 80,
   consecutiveFrames: 3,
-  timeWindow: 5,
+  timeWindow: 8,
   challengeCount: 3,
   maxRetries: 3,
   faceMatchThreshold: 90,

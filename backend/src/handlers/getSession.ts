@@ -47,6 +47,15 @@ export const handler = async (
       };
     }
 
+    const createdAt = event.queryStringParameters?.createdAt;
+    if (!createdAt) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing createdAt parameter" }),
+      };
+    }
+
     const { Confidence, Status, AuditImages, ReferenceImage } =
       await rekognition.send(
         new GetFaceLivenessSessionResultsCommand({ SessionId: sessionId })
@@ -56,12 +65,10 @@ export const handler = async (
     const score = Confidence ?? 0;
     const passed = score >= threshold && Status === "SUCCEEDED";
 
-    const now = new Date().toISOString();
-
     await ddb.send(
       new UpdateCommand({
         TableName: SESSIONS_TABLE,
-        Key: { sessionId, createdAt: now },
+        Key: { sessionId, createdAt },
         UpdateExpression:
           "SET livenessScore = :score, livenessResult = :result, #st = :status, auditImageCount = :aic, referenceImageKey = :ref",
         ExpressionAttributeNames: { "#st": "status" },

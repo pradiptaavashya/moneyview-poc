@@ -12,28 +12,41 @@ interface ChallengeOrchestratorProps {
   createdAt: string;
   challengeCount?: number;
   maxRetries?: number;
+  timeWindow?: number;
+  enabledChallenges?: string[];
+  stream?: MediaStream | null;
   onComplete: (passed: boolean, results: ChallengeResult[]) => void;
 }
 
-function selectChallenges(count: number): ChallengeType[] {
+function selectChallenges(count: number, enabled?: string[]): ChallengeType[] {
   const shuffled = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
-  const headPick = shuffled(HEAD_MOVEMENTS)[0];
-  const exprPick = shuffled(EXPRESSIONS)[0];
-  const remaining = [...HEAD_MOVEMENTS, ...EXPRESSIONS].filter(
+  const allowedHeads = enabled
+    ? HEAD_MOVEMENTS.filter((c) => enabled.includes(c))
+    : HEAD_MOVEMENTS;
+  const allowedExprs = enabled
+    ? EXPRESSIONS.filter((c) => enabled.includes(c))
+    : EXPRESSIONS;
+
+  const headPick = shuffled(allowedHeads)[0];
+  const exprPick = shuffled(allowedExprs)[0];
+  const remaining = [...allowedHeads, ...allowedExprs].filter(
     (c) => c !== headPick && c !== exprPick
   );
   const extras = shuffled(remaining).slice(0, count - 2);
-  return shuffled([headPick, exprPick, ...extras]);
+  return shuffled([headPick, exprPick, ...extras].filter(Boolean));
 }
 
 export function ChallengeOrchestrator({
   sessionId,
   createdAt,
   challengeCount = 3,
+  timeWindow,
+  enabledChallenges,
+  stream,
   onComplete,
 }: ChallengeOrchestratorProps) {
   const [challenges] = useState<ChallengeType[]>(() =>
-    selectChallenges(challengeCount)
+    selectChallenges(challengeCount, enabledChallenges)
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<ChallengeResult[]>([]);
@@ -84,6 +97,8 @@ export function ChallengeOrchestrator({
         challengeType={currentChallenge}
         currentIndex={currentIndex}
         totalChallenges={totalChallenges}
+        timeWindow={timeWindow}
+        stream={stream}
         onComplete={handleChallengeComplete}
       />
     </div>

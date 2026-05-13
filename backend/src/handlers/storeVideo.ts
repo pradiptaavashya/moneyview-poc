@@ -21,17 +21,22 @@ export const handler = async (
       };
     }
 
+    const contentType = body.contentType || "video/webm";
+    const ext = contentType.includes("mp4") ? "mp4" : "webm";
     const dateKey = new Date().toISOString().split("T")[0];
-    const key = `${dateKey}/${sessionId}/video.webm`;
+    const key = `${dateKey}/${sessionId}/video.${ext}`;
 
     if (action === "get") {
-      // Generate presigned GET URL for playback
-      const command = new GetObjectCommand({ Bucket: VIDEO_BUCKET, Key: key });
+      // Try both extensions for playback
+      const webmKey = `${dateKey}/${sessionId}/video.webm`;
+      const mp4Key = `${dateKey}/${sessionId}/video.mp4`;
+      const tryKey = ext === "mp4" ? mp4Key : webmKey;
+      const command = new GetObjectCommand({ Bucket: VIDEO_BUCKET, Key: tryKey });
       const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, key }),
+        body: JSON.stringify({ url, key: tryKey }),
       };
     }
 
@@ -39,7 +44,7 @@ export const handler = async (
     const command = new PutObjectCommand({
       Bucket: VIDEO_BUCKET,
       Key: key,
-      ContentType: "video/webm",
+      ContentType: contentType,
     });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
 

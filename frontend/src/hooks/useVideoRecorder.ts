@@ -14,9 +14,18 @@ export function useVideoRecorder(sessionId: string | null) {
         video: { facingMode: "user", width: 720, height: 960 },
       });
       streamRef.current = stream;
-      const recorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp9",
-      });
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : MediaRecorder.isTypeSupported("video/webm")
+          ? "video/webm"
+          : MediaRecorder.isTypeSupported("video/mp4")
+            ? "video/mp4"
+            : "";
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       chunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -39,7 +48,8 @@ export function useVideoRecorder(sessionId: string | null) {
     return new Promise<void>((resolve) => {
       recorder.onstop = async () => {
         setRecording(false);
-        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const actualType = recorder.mimeType || "video/webm";
+        const blob = new Blob(chunksRef.current, { type: actualType });
 
         if (sessionId && blob.size > 0) {
           try {
@@ -48,7 +58,7 @@ export function useVideoRecorder(sessionId: string | null) {
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ contentType: actualType }),
               }
             );
             const { uploadUrl } = await res.json();
@@ -56,7 +66,7 @@ export function useVideoRecorder(sessionId: string | null) {
               await fetch(uploadUrl, {
                 method: "PUT",
                 body: blob,
-                headers: { "Content-Type": "video/webm" },
+                headers: { "Content-Type": actualType },
               });
             }
           } catch {

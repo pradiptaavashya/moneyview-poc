@@ -233,13 +233,13 @@ function StatCard({
 }
 
 function ResultBadge({ result }: { result?: string }) {
-  if (result === "passed")
+  if (result === "pass" || result === "passed")
     return (
       <span className="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400">
         Passed
       </span>
     );
-  if (result === "failed")
+  if (result === "fail" || result === "failed")
     return (
       <span className="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">
         Failed

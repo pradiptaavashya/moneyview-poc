@@ -23,7 +23,9 @@ export const handler = async (
 
     const contentType = body.contentType || "video/webm";
     const ext = contentType.includes("mp4") ? "mp4" : "webm";
-    const dateKey = new Date().toISOString().split("T")[0];
+    const dateKey = body.createdAt
+      ? new Date(body.createdAt).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0];
     const key = `${dateKey}/${sessionId}/video.${ext}`;
 
     if (action === "get") {

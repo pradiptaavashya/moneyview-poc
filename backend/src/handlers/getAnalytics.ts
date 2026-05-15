@@ -15,8 +15,8 @@ export const handler = async (
     const items = result.Items ?? [];
 
     const total = items.length;
-    const passed = items.filter((i) => i.livenessResult === "passed").length;
-    const failed = items.filter((i) => i.livenessResult === "failed").length;
+    const passed = items.filter((i) => i.livenessResult === "pass" || i.livenessResult === "passed").length;
+    const failed = items.filter((i) => i.livenessResult === "fail" || i.livenessResult === "failed").length;
     const pending = total - passed - failed;
 
     const challengesPassed = items.filter(

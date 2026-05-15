@@ -58,12 +58,12 @@ export function AdminDashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  const playVideo = async (sessionId: string) => {
+  const playVideo = async (sessionId: string, createdAt?: string) => {
     try {
       const res = await fetch(`${API_URL}/sessions/${sessionId}/video-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get" }),
+        body: JSON.stringify({ action: "get", createdAt }),
       });
       const data = await res.json();
       if (data.url) {
@@ -152,7 +152,7 @@ export function AdminDashboardPage() {
                       </td>
                       <td className="py-2">
                         <button
-                          onClick={() => playVideo(s.sessionId)}
+                          onClick={() => playVideo(s.sessionId, s.createdAt)}
                           className="text-indigo-400 hover:text-indigo-300 text-xs"
                         >
                           Play
